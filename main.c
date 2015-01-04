@@ -8,6 +8,8 @@
 #include "driver.h"
 
 #include <math.h>
+#include <time.h>
+#include "fonts/tahoma_24pt_bold.h"
 
 #define fracf(x) ((x) - floorf(x))
 
@@ -77,6 +79,22 @@ int main(int argc, char ** argv) {
       lcd_set_pixel(lcd, i, e, RED);
       lcd_set_pixel(lcd, s, i, RED);
       lcd_set_pixel(lcd, e, i, RED);
+    }
+  } else if (demo == 4) {
+    char i;
+    time_t rawtime;
+    struct tm * timeinfo;
+    char text [50];
+
+    for(;;i++) {
+      time (&rawtime);
+      timeinfo = localtime (&rawtime);
+
+      // blinking separator
+      strftime (text, 50, i % 2 ? "%H   %M " : "%H : %M ", timeinfo);
+      lcd_draw_text(lcd, WHITE, BLACK, 16, 45, text, tahoma_24ptFontInfo);
+
+      sleep(1);
     }
   } else {
     int i;
