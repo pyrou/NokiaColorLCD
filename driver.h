@@ -9,6 +9,10 @@
 #define ENDPAGE 132
 #define ENDCOL 130
 
+#define COLOR_8 0
+#define COLOR_12 1
+#define COLOR_16 2
+
 // 12-Bit Color Definitions
 #define WHITE 0xFFF
 #define BLACK 0x000
@@ -98,12 +102,13 @@ typedef struct lcd {
   char * dev;
   int fd;
   char type;
+  char color_mode;
 
   uint16_t buffer_pos;
   uint16_t buffer[MAX_BUFFER_SIZE];
 } LCD;
 
-int lcd_init(LCD *lcd, char *dev, int reset_pin, int type);
+int lcd_init(LCD *lcd, char *dev, int reset_pin, int type, char color_mode);
 void lcd_clear(LCD *lcd, int color);
 void lcd_set_pixel(LCD *lcd, uint8_t x, uint8_t y, uint16_t color);
 void lcd_dispose(LCD *lcd);

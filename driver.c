@@ -40,6 +40,8 @@ static int lcd_reset(int reset_pin) {
 inline static void send(LCD *lcd, uint16_t word) __attribute__((always_inline));
 inline static void send_cmd(LCD *lcd, uint8_t cmd) __attribute__((always_inline));
 inline static void send_data(LCD *lcd, uint8_t data) __attribute__((always_inline));
+inline static void send_color(LCD *lcd, int color) __attribute__((always_inline));
+
 static void flush(LCD *lcd);
 
 static void send(LCD *lcd, uint16_t word) {
@@ -55,6 +57,26 @@ static void send_cmd(LCD *lcd, uint8_t cmd) {
 
 static void send_data(LCD *lcd, uint8_t data) {
   send(lcd, (uint16_t) data | 0x100);
+}
+
+static void send_color(LCD *lcd, int color) {
+  if(lcd->color_mode == COLOR_8) {
+    uint8_t   red = (uint8_t) ((double)((color >> 8) & 0xF) / 0xF * 0x7); // 3bit
+    uint8_t green = (uint8_t) ((double)((color >> 4) & 0xF) / 0xF * 0x7); // 3bit
+    uint8_t  blue = (uint8_t) ((double)(color        & 0xF) / 0xF * 0x3); // 2bit
+
+    send_data(lcd, (red << 5 | green << 2 | blue));
+  }
+  else if(lcd->color_mode == COLOR_16) {
+    if (lcd->type == TYPE_EPSON) {
+      send_data(lcd, (uint8_t) (color >> 4) & 0x00FF);
+      send_data(lcd, (uint8_t) ((color & 0x0F) << 4) | (color >> 8));
+      send_data(lcd, (uint8_t) color & 0x0FF);
+    } else {
+      send_data(lcd, (uint8_t) ((color >> 4) & 0x00FF));
+      send_data(lcd, (uint8_t) (((color & 0x0F) << 4) | 0x00));
+    }
+  }
 }
 
 static void flush(LCD *lcd) {
@@ -88,9 +110,7 @@ void lcd_clear(LCD *lcd, int color) {
   send_cmd(lcd, ramwr);
   flush(lcd);
   for(i = 0; i < (132 * 132) / 2; i++) {
-    send_data(lcd, (color >> 4) & 0xFF);
-    send_data(lcd, ((color & 0x0F) << 4) | (color >> 8));
-    send_data(lcd, color & 0x0FF);
+    send_color(lcd, color);
   }
 
   flush(lcd);
@@ -107,10 +127,6 @@ void lcd_set_pixel(LCD *lcd, uint8_t x, uint8_t y, uint16_t color) {
     send_data(lcd, ENDCOL);
 
     send_cmd(lcd, RAMWR);
-
-    send_data(lcd, (color >> 4) & 0x00ff);
-    send_data(lcd, ((color & 0x0f) << 4) | (color >> 8));
-    send_data(lcd, color & 0x0ff);
   } else if (lcd->type == TYPE_PHILIPS) {
     send_cmd(lcd, PASETP); // page start/end ram
     send_data(lcd, x);
@@ -121,16 +137,15 @@ void lcd_set_pixel(LCD *lcd, uint8_t x, uint8_t y, uint16_t color) {
     send_data(lcd, y);
 
     send_cmd(lcd, RAMWRP);
-
-    send_data(lcd, (uint8_t) ((color >> 4) & 0x00FF));
-    send_data(lcd, (uint8_t) (((color & 0x0F) << 4) | 0x00));
   }
+
+  send_color(lcd, color);
 
   flush(lcd);
 }
 
 
-int lcd_init(LCD *lcd, char *dev, int reset_pin, int type) {
+int lcd_init(LCD *lcd, char *dev, int reset_pin, int type, char color_mode) {
   int res = lcd_reset(reset_pin);
   if (res < 0) {
     perror("Failed to reset LCD.");
@@ -140,6 +155,7 @@ int lcd_init(LCD *lcd, char *dev, int reset_pin, int type) {
   bzero(lcd, sizeof(LCD));
   lcd->dev = dev;
   lcd->type = type;
+  lcd->color_mode = color_mode;
   lcd->fd = spi_init(dev);
   if (lcd->fd < 0)
     return lcd->fd;
@@ -164,7 +180,13 @@ int lcd_init(LCD *lcd, char *dev, int reset_pin, int type) {
     send_cmd(lcd, DATCTL); // data control (0xBC)
     send_data(lcd, 0x03);  // Inverse page address, reverse rotation column address, column scan-direction !!! try 0x01
     send_data(lcd, 0x00);  // normal RGB arrangement
-    send_data(lcd, 0x02);  // 16-bit Grayscale Type A (12-bit color)
+    switch(lcd->color_mode) {
+      case 0: send_data(lcd, 0x01); break; // (8-bit color)
+      case 1: send_data(lcd, 0x02); break; // 16-bit Grayscale Type A (12-bit color)
+      default:
+        perror("Unsupported color mode.");
+        return 1;
+    }
 
     send_cmd(lcd, VOLCTR); // electronic volume, this is the contrast/brightness (0x81)
     send_data(lcd, 32);  // volume (contrast) setting - fine tuning, original (0-63)
@@ -179,22 +201,27 @@ int lcd_init(LCD *lcd, char *dev, int reset_pin, int type) {
     send_cmd(lcd, SLEEPOUT); // Sleep Out (0x11)
     send_cmd(lcd, BSTRON);   // Booster voltage on (0x03)
     send_cmd(lcd, DISPON);   // Display on (0x29)
-
     // send_cmd(lcd, INVON);    // Inversion on (0x20)
-  
-    // 12-bit color pixel format:
+
     send_cmd(lcd, COLMOD);   // Color interface format (0x3A)
-    send_data(lcd, 0x03);        // 0b011 is 12-bit/pixel mode
-  
+    switch(lcd->color_mode) {
+      case 0: send_data(lcd, 0x02); break; // 8-bit/pixel mode
+      case 1: send_data(lcd, 0x03); break; // 12-bit/pixel mode
+      // case 2: send_data(lcd, 0x05); break; // 16-bit/pixel mode // untested
+      default:
+        perror("Unsupported color mode.");
+        return 1;
+    }
+
     send_cmd(lcd, MADCTL);   // Memory Access Control(PHILLIPS)
     // if (colorSwap)
     //   send_data(lcd, 0x08);
     // else
       send_data(lcd, 0x00);
-  
+
     send_cmd(lcd, SETCON);   // Set Contrast(PHILLIPS)
     send_data(lcd, 0x30);
-  
+
     send_cmd(lcd, NOPP);     // nop(PHILLIPS)
   }
 

@@ -18,7 +18,7 @@ int main(int argc, char ** argv) {
 
   LCD *lcd = (LCD *) malloc(sizeof(LCD));
 
-  res = lcd_init(lcd, "/dev/spidev0.0", 25, TYPE_PHILIPS);
+  res = lcd_init(lcd, "/dev/spidev0.0", 25, TYPE_EPSON, COLOR_8);
   if (res < 0) {
     perror("Failed to init LCD.");
     return 1;
