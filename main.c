@@ -45,6 +45,14 @@ int main(int argc, char ** argv) {
       }
     }
   } else if (demo == 1) {
+int i;
+for (i = 0; i <= 66; i++) {
+    lcd_clear_box(lcd, WHITE, i, i, i, 131-i);
+    lcd_clear_box(lcd, BLUE, i, 132-i, 132-i, 132-i);
+    lcd_clear_box(lcd, RED, 66+i,66-i,66+i,66+i);
+    lcd_clear_box(lcd, GREEN, i,i,132-i,i);
+}
+/*
     int i;
     int offset;
     for (offset = 0; offset < w / 2; offset++) {
@@ -55,6 +63,7 @@ int main(int argc, char ** argv) {
         lcd_set_pixel(lcd, 1 + offset, i + offset, WHITE);
       }
     }
+*/
   } else if (demo == 2) {
     lcd_clear(lcd, RED);
     sleep(2);
