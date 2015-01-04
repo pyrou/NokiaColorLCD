@@ -110,6 +110,8 @@ typedef struct lcd {
 
 int lcd_init(LCD *lcd, char *dev, int reset_pin, int type, char color_mode);
 void lcd_clear(LCD *lcd, int color);
+void lcd_clear_box(LCD *lcd, int color, uint8_t x1, uint8_t y1, uint8_t x2, uint8_t y2);
+void lcd_set_box(LCD *lcd, uint8_t x1, uint8_t y1, uint8_t x2, uint8_t y2);
 void lcd_set_pixel(LCD *lcd, uint8_t x, uint8_t y, uint16_t color);
 void lcd_dispose(LCD *lcd);
 

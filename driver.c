@@ -52,9 +52,13 @@ static void send(LCD *lcd, uint16_t word) {
 }
 
 static void send_cmd(LCD *lcd, uint8_t cmd) {
+  if(lcd->type == TYPE_PHILIPS) {
+         if(cmd == CASET) cmd = CASETP;
+    else if(cmd == PASET) cmd = PASETP;
+    else if(cmd == RAMWR) cmd = RAMWRP;
+  }
   send(lcd, cmd);
 }
-
 static void send_data(LCD *lcd, uint8_t data) {
   send(lcd, (uint16_t) data | 0x100);
 }
@@ -85,65 +89,56 @@ static void flush(LCD *lcd) {
 }
 
 void lcd_clear(LCD *lcd, int color) {
-  uint8_t paset, caset, ramwr;
-  uint32_t i;
-
-  if (lcd->type == TYPE_EPSON) {
-    paset = PASET;
-    caset = CASET;
-    ramwr = RAMWR;
-  } else {
-    paset = PASETP;
-    caset = CASETP;
-    ramwr = RAMWRP;
-  }
-
-  send_cmd(lcd, paset);
-  send_data(lcd, 0);
-  send_data(lcd, 132);
-  send_cmd(lcd, caset);
-  send_data(lcd, 0);
-  send_data(lcd, 132);
-
-  flush(lcd);
-
-  send_cmd(lcd, ramwr);
-  flush(lcd);
-  for(i = 0; i < (132 * 132) / 2; i++) {
-    send_color(lcd, color);
-  }
-
-  flush(lcd);
+    lcd_clear_box(lcd, color, 0, 0, 132, 132);
 }
+
+void lcd_clear_box(LCD *lcd, int color, uint8_t x1, uint8_t y1, uint8_t x2, uint8_t y2)
+{
+    uint16_t i;
+    uint16_t total_bytes1;
+    uint16_t total_bytes2;
+    uint16_t total_bytes;
+
+    lcd_set_box(lcd, x1, y1, x2, y2);
+    send_cmd(lcd, RAMWR);
+    flush(lcd);
+
+    total_bytes1 = (x2 - x1 + 1);
+    total_bytes2 = (y2 - y1 + 1);
+    total_bytes = total_bytes1 * total_bytes2;
+
+    for (i = 0; i < total_bytes; i++){
+        send_color(lcd, color);
+    }
+
+    flush(lcd);
+}
+
 
 void lcd_set_pixel(LCD *lcd, uint8_t x, uint8_t y, uint16_t color) {
   if (lcd->type == TYPE_EPSON) {
-    send_cmd(lcd, PASET); // page start/end ram
-    send_data(lcd, x);
-    send_data(lcd, ENDPAGE);
-
-    send_cmd(lcd, CASET); // column start/end ram
-    send_data(lcd, y);
-    send_data(lcd, ENDCOL);
-
-    send_cmd(lcd, RAMWR);
-  } else if (lcd->type == TYPE_PHILIPS) {
-    send_cmd(lcd, PASETP); // page start/end ram
-    send_data(lcd, x);
-    send_data(lcd, x);
-
-    send_cmd(lcd, CASETP); // column start/end ram
-    send_data(lcd, y);
-    send_data(lcd, y);
-
-    send_cmd(lcd, RAMWRP);
+    lcd_set_box(lcd, x, y, ENDPAGE, ENDCOL);
+  } else {
+    lcd_set_box(lcd, x, y, x, y);
   }
+
+  send_cmd(lcd, RAMWR);
 
   send_color(lcd, color);
 
   flush(lcd);
 }
 
+void lcd_set_box(LCD *lcd, uint8_t x1, uint8_t y1, uint8_t x2, uint8_t y2)
+{
+    send_cmd(lcd, CASET); // x
+    send_data(lcd, x1);
+    send_data(lcd, x2);
+
+    send_cmd(lcd, PASET); // y
+    send_data(lcd, y1);
+    send_data(lcd, y2);
+}
 
 int lcd_init(LCD *lcd, char *dev, int reset_pin, int type, char color_mode) {
   int res = lcd_reset(reset_pin);
@@ -178,7 +173,7 @@ int lcd_init(LCD *lcd, char *dev, int reset_pin, int type, char color_mode) {
     send_cmd(lcd, DISINV); // invert display mode (0xA7)
 
     send_cmd(lcd, DATCTL); // data control (0xBC)
-    send_data(lcd, 0x03);  // Inverse page address, reverse rotation column address, column scan-direction !!! try 0x01
+    send_data(lcd, 0x00);  // don't inverse page address, reverse rotation column address, column scan-direction !!! try 0x01
     send_data(lcd, 0x00);  // normal RGB arrangement
     switch(lcd->color_mode) {
       case 0: send_data(lcd, 0x01); break; // (8-bit color)
@@ -201,7 +196,8 @@ int lcd_init(LCD *lcd, char *dev, int reset_pin, int type, char color_mode) {
     send_cmd(lcd, SLEEPOUT); // Sleep Out (0x11)
     send_cmd(lcd, BSTRON);   // Booster voltage on (0x03)
     send_cmd(lcd, DISPON);   // Display on (0x29)
-    // send_cmd(lcd, INVON);    // Inversion on (0x20)
+
+    send_cmd(lcd, INVOFF);  // Inversion off (0x21)
 
     send_cmd(lcd, COLMOD);   // Color interface format (0x3A)
     switch(lcd->color_mode) {
