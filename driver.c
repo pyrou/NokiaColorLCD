@@ -66,9 +66,9 @@ static void send_data(LCD *lcd, uint8_t data) {
 
 static void send_color(LCD *lcd, int color) {
   if(lcd->color_mode == COLOR_8) {
-    uint8_t   red = (uint8_t) ((double)((color >> 8) & 0xF) / 0xF * 0x7); // 3bit
-    uint8_t green = (uint8_t) ((double)((color >> 4) & 0xF) / 0xF * 0x7); // 3bit
-    uint8_t  blue = (uint8_t) ((double)(color        & 0xF) / 0xF * 0x3); // 2bit
+    uint8_t   red = (uint8_t) ((double)((color >> 8) & 0xF) / 0xF * 0x7 + 0.5); // 3bit
+    uint8_t green = (uint8_t) ((double)((color >> 4) & 0xF) / 0xF * 0x7 + 0.5); // 3bit
+    uint8_t  blue = (uint8_t) ((double)(color        & 0xF) / 0xF * 0x3 + 0.5); // 2bit
 
     send_data(lcd, (red << 5 | green << 2 | blue));
   }
