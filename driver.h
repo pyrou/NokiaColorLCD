@@ -2,6 +2,7 @@
 #define _DRIVER_H_
 
 #include <stdint.h>
+#include "fonts/bitmap_db.h"
 
 // LCD Dimension Definitions
 #define ROW_LENGTH 132
@@ -113,6 +114,7 @@ void lcd_clear(LCD *lcd, int color);
 void lcd_clear_box(LCD *lcd, int color, uint8_t x1, uint8_t y1, uint8_t x2, uint8_t y2);
 void lcd_set_box(LCD *lcd, uint8_t x1, uint8_t y1, uint8_t x2, uint8_t y2);
 void lcd_set_pixel(LCD *lcd, uint8_t x, uint8_t y, uint16_t color);
+void lcd_draw_text(LCD *lcd, int fcolor, int bcolor, uint8_t x, uint8_t y, char *text, FONT_INFO font);
 void lcd_dispose(LCD *lcd);
 
 #endif

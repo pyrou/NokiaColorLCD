@@ -42,6 +42,7 @@ inline static void send_cmd(LCD *lcd, uint8_t cmd) __attribute__((always_inline)
 inline static void send_data(LCD *lcd, uint8_t data) __attribute__((always_inline));
 inline static void send_color(LCD *lcd, int color) __attribute__((always_inline));
 
+static void draw_text_line(LCD *lcd, int fcolor, int bcolor, uint8_t x, uint8_t y, char l);
 static void flush(LCD *lcd);
 
 static void send(LCD *lcd, uint16_t word) {
@@ -138,6 +139,81 @@ void lcd_set_box(LCD *lcd, uint8_t x1, uint8_t y1, uint8_t x2, uint8_t y2)
     send_cmd(lcd, PASET); // y
     send_data(lcd, y1);
     send_data(lcd, y2);
+}
+
+
+static void draw_text_line(LCD *lcd, int fcolor, int bcolor, uint8_t x, uint8_t y, char l)
+{
+  int i;
+  lcd_set_box(lcd, x, y, x, y+8);
+  send_cmd(lcd, RAMWR);
+
+  flush(lcd);
+
+  for(i=0;i<8;i++)
+  {
+    if (1<<i & l) {
+        send_color(lcd, fcolor);
+    } else {
+        send_color(lcd, bcolor);
+    }
+  }
+  flush(lcd);
+}
+
+void lcd_draw_text(LCD *lcd, int fcolor, int bcolor, uint8_t x, uint8_t y, char *text, FONT_INFO font)
+{
+  char c;
+  unsigned char charnum;
+  uint16_t i;
+  uint8_t xpos;
+  uint8_t ypos;
+  uint8_t widthBits;
+  uint16_t startOffset;
+  uint16_t endOffset;
+  char spaceWidth = font.charInfo[':' - font.startChar].widthBits;
+
+  y += font.heightPages * 8;
+
+  while(*text != 0)
+  {
+    c = *text;
+    if(c == ' ') {
+      lcd_clear_box(lcd, bcolor, x, y - 8 * (font.heightPages - 1), x + spaceWidth + font.spacePixels - 1, y + 7);
+      x += spaceWidth + font.spacePixels;
+      text++;
+      continue;
+    }
+
+    charnum = c - font.startChar;
+    widthBits = font.charInfo[charnum].widthBits;
+    startOffset = font.charInfo[charnum].offset;
+    endOffset = startOffset + (widthBits*font.heightPages);
+
+    xpos = x;
+    ypos = y;
+
+    for (i=startOffset; i < endOffset; i++) {
+      draw_text_line(lcd, fcolor, bcolor, xpos, ypos, font.data[i]);
+      ypos -= 8;
+
+      if((i + 1) % font.heightPages == 0) {
+        xpos ++;
+        ypos = y;
+      }
+    }
+
+    x += widthBits;
+    text++;
+    ypos = y;
+
+    if(*text != 0) {
+      lcd_clear_box(lcd, bcolor, x, y - 8 * (font.heightPages-1), x + font.spacePixels - 1, y + 7);
+      x += font.spacePixels;
+    }
+
+
+  }
 }
 
 int lcd_init(LCD *lcd, char *dev, int reset_pin, int type, char color_mode) {
